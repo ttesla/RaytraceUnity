@@ -42,7 +42,7 @@ Camera:
   m_GameObject: {fileID: 8941506631401898967}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
+  m_ClearFlags: 2
   m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
@@ -96,4 +96,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f358168f0be359a4c94a574ce5d79ec9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  RayTracingShader: {fileID: 0}
+  RayTracingShader: {fileID: 7200000, guid: a8435ddabb40ece4ca77e524088a75c6, type: 3}
+  SkyboxTexture: {fileID: 2800000, guid: 5320e8e6e645e184a8f9904884ffdfe7, type: 3}
+  UseSampling: 0
+  SamplerMaterial: {fileID: 2100000, guid: 6a3dd0a8c2633324ebff53162f28a82e, type: 2}
