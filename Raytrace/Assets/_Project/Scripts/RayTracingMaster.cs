@@ -118,7 +118,10 @@ public class RayTracingMaster : MonoBehaviour
         {
             // Release render texture if we already have one
             if (mTarget != null)
+            {
                 mTarget.Release();
+                mConverged.Release();
+            }
 
             // Get a render target for Ray Tracing
             mTarget = new RenderTexture(Screen.width, Screen.height, 0,
@@ -126,8 +129,17 @@ public class RayTracingMaster : MonoBehaviour
             mTarget.enableRandomWrite = true;
             mTarget.Create();
 
+            // Get a render target for Ray Tracing
+            mConverged = new RenderTexture(Screen.width, Screen.height, 0,
+                RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+            mConverged.enableRandomWrite = true;
+            mConverged.Create();
+
             // Set newly created target texture
             RayTracingShader.SetTexture(0, "_Result", mTarget);
+
+            // Reset sampling
+            mCurrentSample = 0;
 
             Debug.Log("Render Texture Re-Init!");
         }
@@ -155,9 +167,9 @@ public class RayTracingMaster : MonoBehaviour
                 // Albedo and specular color
                 Color color = Random.ColorHSV();
                 float chance = Random.value;
-                if (chance < 0.8f)
+                if (chance < 0.7f)
                 {
-                    bool metal = chance < 0.4f;
+                    bool metal = chance < 0.6f;
                     sphere.albedo = metal ? Vector4.zero : new Vector4(color.r, color.g, color.b);
                     sphere.specular = metal ? new Vector4(color.r, color.g, color.b) : new Vector4(0.04f, 0.04f, 0.04f);
                     sphere.smoothness = Random.value;
@@ -173,11 +185,19 @@ public class RayTracingMaster : MonoBehaviour
             }
         }
 
-        Sphere sun = new Sphere();
-        sun.emission = new Vector3(1.0f, 1.0f, 1.0f);
-        sun.position = new Vector3(0, 100, 0);
-        sun.radius = 50;
-        spheres.Add(sun);
+        // Suns
+        //Sphere sun1 = new Sphere();
+        //sun1.emission = new Vector3(1.0f, 1.0f, 0.2f);
+        //sun1.position = new Vector3(-50, 100, 0);
+        //sun1.radius = 50;
+
+        //Sphere sun2 = new Sphere();
+        //sun2.emission = new Vector3(1.0f, 1.0f, 0.2f);
+        //sun2.position = new Vector3(50, 100, 0);
+        //sun2.radius = 50;
+
+        //spheres.Add(sun1);
+        //spheres.Add(sun2);
 
         // Assign to compute buffer
         mSphereBuffer = new ComputeBuffer(spheres.Count, 56);

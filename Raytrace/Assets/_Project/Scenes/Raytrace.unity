@@ -235,7 +235,7 @@ PrefabInstance:
     - target: {fileID: 1531799000104342667, guid: 3652e637b8884f14998b2ec4b9785060, type: 3}
       propertyPath: SkyboxTexture
       value: 
-      objectReference: {fileID: 2800000, guid: 5c1839d635e69904d9800ba1557afa86, type: 3}
+      objectReference: {fileID: 2800000, guid: a04860463677af7449c6afae99b998c0, type: 3}
     - target: {fileID: 1531799000104342667, guid: 3652e637b8884f14998b2ec4b9785060, type: 3}
       propertyPath: SphereRadius.x
       value: 5
