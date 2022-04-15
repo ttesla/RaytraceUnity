@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-
 
 struct Sphere
 {
@@ -29,14 +29,19 @@ public class RayTracingMaster : MonoBehaviour
     public Texture SkyboxTexture;
     public Light DirectionalLight;
 
+    [Header("Rendering")]
+    public int MaxRenderCount;
+    public float FrameRenderDelay;
+    public event System.Action<int> FrameRendered;
+
     [Header("Sampling")]
     public bool UseSampling;
     public Material SamplerMaterial;
 
     [Header("Spheres")]
-    public Vector2 SphereRadius = new Vector2(3.0f, 8.0f);
-    public uint SpheresMax = 100;
-    public float SpherePlacementRadius = 100.0f;
+    public Vector2 SphereRadius;
+    public uint SpheresMax;
+    public float SpherePlacementRadius;
     public int SphereSeed;
 
     private ComputeBuffer mSphereBuffer;
@@ -55,6 +60,8 @@ public class RayTracingMaster : MonoBehaviour
     private ComputeBuffer mMeshObjectBuffer;
     private ComputeBuffer mVertexBuffer;
     private ComputeBuffer mIndexBuffer;
+    private int mFrameCount;
+    private bool mIsRenderingStarted;
 
 
     private void Awake()
@@ -66,6 +73,7 @@ public class RayTracingMaster : MonoBehaviour
     private void Start()
     {
         SetUpScene();
+        //StartCoroutine(RenderingRoutine());
     }
 
     private void OnDisable()
@@ -85,8 +93,12 @@ public class RayTracingMaster : MonoBehaviour
 
             //Debug.Log("Transform changed!");
         }
-    }
 
+        if (Input.GetKeyDown(KeyCode.Alpha1)) 
+        {
+            TakeScreenshot();
+        }
+    }
   
     public void RegisterObject(RayTracingObject obj)
     {
@@ -262,7 +274,6 @@ public class RayTracingMaster : MonoBehaviour
         return false;
     }
 
-
     private void ReleaseBuffer()
     {
         if (mSphereBuffer != null) 
@@ -346,5 +357,50 @@ public class RayTracingMaster : MonoBehaviour
         {
             RayTracingShader.SetBuffer(0, name, buffer);
         }
+    }
+
+    private bool mDirectorySetup = false;
+
+    private void DirectorySetup() 
+    {
+        if (!mDirectorySetup) 
+        {
+            if (UnityEngine.Windows.Directory.Exists("Render"))
+            {
+                Debug.Log("Render directory exists...");
+            }
+            else
+            {
+                Debug.Log("Creating directory for render...");
+                UnityEngine.Windows.Directory.CreateDirectory("Render");
+            }
+
+            mDirectorySetup = true;
+        }
+    }
+
+    private IEnumerator RenderingRoutine() 
+    {
+        mIsRenderingStarted = true;
+
+        // Initial wait for waiting everything up and ready
+        yield return 1.0f;
+
+        // Render routine
+        for(int i = 0; i < MaxRenderCount; i++) 
+        {
+            Debug.Log("Rendering Frame:" + mFrameCount);
+            yield return new WaitForSeconds(FrameRenderDelay);
+            TakeScreenshot();
+            FrameRendered?.Invoke(mFrameCount);
+            mFrameCount++;
+            mMeshObjectsNeedRebuilding = true;
+        }
+    }
+
+    private void TakeScreenshot() 
+    {
+        DirectorySetup();
+        ScreenCapture.CaptureScreenshot("Render/Frame_" + mFrameCount.ToString("00000") + ".png");
     }
 }
