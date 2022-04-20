@@ -4,10 +4,11 @@ using UnityEngine;
 
 public class RenderAnimation : MonoBehaviour
 {
-    [Header("Dynamic Object")]
-    public Transform CubeTrans;
+    [Header("Dynamic Objects")]
+    public Transform MiddleCubeTrans;
     public Transform CamTrans;
     public float CamWaveDistance;
+    public Transform[] DynamicSpheres;
 
     [Header("Spheres")]
     public Vector2 SphereRadius;
@@ -28,13 +29,18 @@ public class RenderAnimation : MonoBehaviour
     private void OnFrameRendered(int frameCount)
     {
         // Cube rotate
-        CubeTrans.Rotate(Vector3.up, 1.5f, Space.World);
+        MiddleCubeTrans.Rotate(Vector3.up, 1.5f, Space.World);
         
         // Cam rotate and swing
         CamTrans.RotateAround(Vector3.zero, Vector3.up, -1.0f);
         var camPos = CamTrans.position;
         camPos.y = mCamY + Mathf.Sin(Mathf.PI * (frameCount / 90f)) * CamWaveDistance;
         CamTrans.position = camPos;
+
+        foreach(var sphere in DynamicSpheres) 
+        {
+            sphere.RotateAround(Vector3.zero, Vector3.up, -2.0f);
+        }
     }
 
     private void InitStaticSpheres() 
@@ -62,7 +68,7 @@ public class RenderAnimation : MonoBehaviour
                 {
                     bool metal = chance < 0.6f;
                     sphere.albedo = metal ? Vector3.zero : new Vector3(color.r, color.g, color.b);
-                    sphere.specular = metal ? new Vector4(color.r, color.g, color.b) : new Vector4(0.04f, 0.04f, 0.04f);
+                    sphere.specular = metal ? new Vector3(color.r, color.g, color.b) : new Vector3(0.04f, 0.04f, 0.04f);
                     sphere.smoothness = Random.Range(0.75f, 1.0f);
                 }
                 else

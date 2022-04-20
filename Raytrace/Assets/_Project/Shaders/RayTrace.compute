@@ -41,7 +41,8 @@ struct Sphere
     float3 emission;
 };
 
-StructuredBuffer<Sphere> _Spheres;
+StructuredBuffer<Sphere> _StaticSpheres;
+StructuredBuffer<Sphere> _DynamicSpheres;
 
 struct MeshObject
 {
@@ -232,11 +233,18 @@ RayHit Trace(Ray ray)
     // Intersect plane
     IntersectGroundPlane(ray, bestHit);
     
-    // Trace spheres
-    _Spheres.GetDimensions(count, stride);
+    // Trace static spheres
+    _StaticSpheres.GetDimensions(count, stride);
     for (i = 0; i < count; i++)
     {
-        IntersectSphere(ray, bestHit, _Spheres[i]);
+        IntersectSphere(ray, bestHit, _StaticSpheres[i]);
+    }
+
+    // Trace dynamic spheres
+    _DynamicSpheres.GetDimensions(count, stride);
+    for (i = 0; i < count; i++)
+    {
+        IntersectSphere(ray, bestHit, _DynamicSpheres[i]);
     }
 
     // Trace mesh objects

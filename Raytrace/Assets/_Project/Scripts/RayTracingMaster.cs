@@ -45,9 +45,10 @@ public class RayTracingMaster : MonoBehaviour
     private uint mCurrentSample = 0;
 
     private bool mMeshObjectsNeedRebuilding = false;
+    private bool mDynamicSphereObjectsNeedRebuilding = false;
     private List<RayTracingObject> mRayTracingObjects = new List<RayTracingObject>();
-    private List<Sphere> mDynamicSpheres = new List<Sphere>();
-    private List<Sphere> mStaticSpheres = new List<Sphere>();
+    private List<Sphere> mSpheres = new List<Sphere>();
+    private List<RayTracingSphere> mDynamicSpheres = new List<RayTracingSphere>();
     private List<MeshObject> mMeshObjects = new List<MeshObject>();
     private List<Vector3> mVertices       = new List<Vector3>();
     private List<int> mIndices            = new List<int>();
@@ -75,6 +76,7 @@ public class RayTracingMaster : MonoBehaviour
     {
         ReleaseBuffers();
     }
+
     private void Update()
     {
         if (UseSampling && !mIsRenderingStarted && transform.hasChanged)
@@ -95,15 +97,16 @@ public class RayTracingMaster : MonoBehaviour
         mMeshObjectsNeedRebuilding = true;
     }
 
-    public void RegisterDynamicSphere(Sphere sphere)
+    public void RegisterDynamicSphere(RayTracingSphere sphere)
     {
         mDynamicSpheres.Add(sphere);
-        mMeshObjectsNeedRebuilding = true;
+        mDynamicSphereObjectsNeedRebuilding = true;
     }
 
     public void RegisterStaticSpheres(List<Sphere> spheres) 
     {
-        RayTraceUtility.CreateComputeBuffer(ref mStaticSphereBuffer, spheres, 56);
+        mSpheres.AddRange(spheres);
+        RayTraceUtility.CreateComputeBuffer(ref mStaticSphereBuffer, mSpheres, 56);
     }
 
     private void SetShaderParameters()
@@ -117,7 +120,9 @@ public class RayTracingMaster : MonoBehaviour
         Vector3 l = DirectionalLight.transform.forward;
         RayTracingShader.SetVector("_DirectionalLight", new Vector4(l.x, l.y, l.z, DirectionalLight.intensity));
 
-        SetComputeBuffer("_Spheres", mStaticSphereBuffer);
+        // We don't need to make this every frame they are here for consistency 
+        SetComputeBuffer("_StaticSpheres", mStaticSphereBuffer);
+        SetComputeBuffer("_DynamicSpheres", mDynamicSphereBuffer);
         SetComputeBuffer("_MeshObjects", mMeshObjectBuffer);
         SetComputeBuffer("_Vertices", mVertexBuffer);
         SetComputeBuffer("_Indices", mIndexBuffer);
@@ -130,6 +135,7 @@ public class RayTracingMaster : MonoBehaviour
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
+        RebuildDynamicSphereBuffers();
         RebuildMeshObjectBuffers();
         SetShaderParameters();
         Render(destination);
@@ -200,9 +206,29 @@ public class RayTracingMaster : MonoBehaviour
     private void ReleaseBuffers()
     {
         mStaticSphereBuffer?.Release();
+        mDynamicSphereBuffer?.Release();
         mMeshObjectBuffer?.Release();
         mVertexBuffer?.Release();
         mIndexBuffer?.Release();
+    }
+
+    private void RebuildDynamicSphereBuffers() 
+    {
+        if (!mDynamicSphereObjectsNeedRebuilding)
+        {
+            return;
+        }
+
+        mDynamicSphereObjectsNeedRebuilding = false;
+        mCurrentSample = 0;
+        List<Sphere> spheres = new List<Sphere>();
+
+        foreach (var dynamicSphere in mDynamicSpheres) 
+        {
+            spheres.Add(dynamicSphere.Sphere);
+        }
+
+        RayTraceUtility.CreateComputeBuffer(ref mDynamicSphereBuffer, spheres, 56);
     }
 
     private void RebuildMeshObjectBuffers()
@@ -296,6 +322,7 @@ public class RayTracingMaster : MonoBehaviour
             FrameRendered?.Invoke(mFrameCount);
             mFrameCount++;
             mMeshObjectsNeedRebuilding = true;
+            mDynamicSphereObjectsNeedRebuilding = true;
         }
     }
 
