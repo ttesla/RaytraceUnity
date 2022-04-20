@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-struct Sphere
+public struct Sphere
 {
     public Vector3 position;
     public float radius;
@@ -32,31 +32,27 @@ public class RayTracingMaster : MonoBehaviour
     [Header("Rendering")]
     public int MaxRenderCount;
     public float FrameRenderDelay;
+    public bool Record;
     public event System.Action<int> FrameRendered;
 
     [Header("Sampling")]
     public bool UseSampling;
     public Material SamplerMaterial;
 
-    [Header("Spheres")]
-    public Vector2 SphereRadius;
-    public uint SpheresMax;
-    public float SpherePlacementRadius;
-    public int SphereSeed;
-
-    private ComputeBuffer mSphereBuffer;
     private RenderTexture mTarget;
     private RenderTexture mConverged;
     private Camera mCamera;
-
     private uint mCurrentSample = 0;
 
     private bool mMeshObjectsNeedRebuilding = false;
     private List<RayTracingObject> mRayTracingObjects = new List<RayTracingObject>();
-    
+    private List<Sphere> mDynamicSpheres = new List<Sphere>();
+    private List<Sphere> mStaticSpheres = new List<Sphere>();
     private List<MeshObject> mMeshObjects = new List<MeshObject>();
     private List<Vector3> mVertices       = new List<Vector3>();
     private List<int> mIndices            = new List<int>();
+    private ComputeBuffer mStaticSphereBuffer;
+    private ComputeBuffer mDynamicSphereBuffer;
     private ComputeBuffer mMeshObjectBuffer;
     private ComputeBuffer mVertexBuffer;
     private ComputeBuffer mIndexBuffer;
@@ -72,26 +68,19 @@ public class RayTracingMaster : MonoBehaviour
 
     private void Start()
     {
-        SetUpScene();
-        //StartCoroutine(RenderingRoutine());
+        StartCoroutine(RenderingRoutine());
     }
 
     private void OnDisable()
     {
-        mSphereBuffer?.Release();
-        mMeshObjectBuffer?.Release();
-        mVertexBuffer?.Release();
-        mIndexBuffer?.Release();
+        ReleaseBuffers();
     }
-
     private void Update()
     {
-        if (UseSampling && transform.hasChanged)
+        if (UseSampling && !mIsRenderingStarted && transform.hasChanged)
         {
             mCurrentSample = 0;
             transform.hasChanged = false;
-
-            //Debug.Log("Transform changed!");
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha1)) 
@@ -105,10 +94,16 @@ public class RayTracingMaster : MonoBehaviour
         mRayTracingObjects.Add(obj);
         mMeshObjectsNeedRebuilding = true;
     }
-    public void UnregisterObject(RayTracingObject obj)
+
+    public void RegisterDynamicSphere(Sphere sphere)
     {
-        mRayTracingObjects.Remove(obj);
+        mDynamicSpheres.Add(sphere);
         mMeshObjectsNeedRebuilding = true;
+    }
+
+    public void RegisterStaticSpheres(List<Sphere> spheres) 
+    {
+        RayTraceUtility.CreateComputeBuffer(ref mStaticSphereBuffer, spheres, 56);
     }
 
     private void SetShaderParameters()
@@ -122,7 +117,7 @@ public class RayTracingMaster : MonoBehaviour
         Vector3 l = DirectionalLight.transform.forward;
         RayTracingShader.SetVector("_DirectionalLight", new Vector4(l.x, l.y, l.z, DirectionalLight.intensity));
 
-        SetComputeBuffer("_Spheres", mSphereBuffer);
+        SetComputeBuffer("_Spheres", mStaticSphereBuffer);
         SetComputeBuffer("_MeshObjects", mMeshObjectBuffer);
         SetComputeBuffer("_Vertices", mVertexBuffer);
         SetComputeBuffer("_Indices", mIndexBuffer);
@@ -202,84 +197,12 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
-
-    private void SetUpScene()
+    private void ReleaseBuffers()
     {
-        Random.InitState(SphereSeed);
-        List<Sphere> spheres = new List<Sphere>();
-        
-        // Add a number of random spheres
-        for (int i = 0; i < SpheresMax; i++)
-        {
-            Sphere sphere = new Sphere();
-           
-            // Radius and radius
-            sphere.radius = SphereRadius.x + Random.value * (SphereRadius.y - SphereRadius.x);
-            Vector2 randomPos = Random.insideUnitCircle * SpherePlacementRadius;
-            sphere.position = new Vector3(randomPos.x, sphere.radius, randomPos.y);
-            
-            // Reject spheres that are intersecting others
-            if (!IsCollidingWithOtherSpheres(sphere, spheres)) 
-            {
-                // Albedo and specular color
-                Color color = Random.ColorHSV();
-                float chance = Random.value;
-                if (chance < 0.7f)
-                {
-                    bool metal = chance < 0.6f;
-                    sphere.albedo = metal ? Vector4.zero : new Vector4(color.r, color.g, color.b);
-                    sphere.specular = metal ? new Vector4(color.r, color.g, color.b) : new Vector4(0.04f, 0.04f, 0.04f);
-                    sphere.smoothness = Random.value;
-                }
-                else
-                {
-                    Color emission = Random.ColorHSV(0, 1, 0, 1, 3.0f, 8.0f);
-                    sphere.emission = new Vector3(emission.r, emission.g, emission.b);
-                }
-
-                // Add the sphere to the list
-                spheres.Add(sphere);
-            }
-        }
-
-        // Suns
-        //Sphere sun1 = new Sphere();
-        //sun1.emission = new Vector3(1.0f, 1.0f, 0.2f);
-        //sun1.position = new Vector3(-50, 100, 0);
-        //sun1.radius = 50;
-
-        //Sphere sun2 = new Sphere();
-        //sun2.emission = new Vector3(1.0f, 1.0f, 0.2f);
-        //sun2.position = new Vector3(50, 100, 0);
-        //sun2.radius = 50;
-
-        //spheres.Add(sun1);
-        //spheres.Add(sun2);
-
-        // Assign to compute buffer
-        CreateComputeBuffer(ref mSphereBuffer, spheres, 56);
-    }
-
-    private bool IsCollidingWithOtherSpheres(Sphere sphere, List<Sphere> spheres)
-    {
-        foreach (Sphere other in spheres)
-        {
-            float minDist = sphere.radius + other.radius;
-            if (Vector3.SqrMagnitude(sphere.position - other.position) < minDist * minDist)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private void ReleaseBuffer()
-    {
-        if (mSphereBuffer != null) 
-        {
-            mSphereBuffer.Release();
-        }
+        mStaticSphereBuffer?.Release();
+        mMeshObjectBuffer?.Release();
+        mVertexBuffer?.Release();
+        mIndexBuffer?.Release();
     }
 
     private void RebuildMeshObjectBuffers()
@@ -318,37 +241,9 @@ public class RayTracingMaster : MonoBehaviour
             });
         }
 
-        CreateComputeBuffer(ref mMeshObjectBuffer, mMeshObjects, 72);
-        CreateComputeBuffer(ref mVertexBuffer, mVertices, 12);
-        CreateComputeBuffer(ref mIndexBuffer, mIndices, 4);
-    }
-
-    private static void CreateComputeBuffer<T>(ref ComputeBuffer buffer, List<T> data, int stride)
-    where T : struct
-    {
-        // Do we already have a compute buffer?
-        if (buffer != null)
-        {
-            // If no data or buffer doesn't match the given criteria, release it
-            if (data.Count == 0 || buffer.count != data.Count || buffer.stride != stride)
-            {
-                buffer.Release();
-                buffer = null;
-            }
-        }
-
-        if (data.Count != 0)
-        {
-            // If the buffer has been released or wasn't there to
-            // begin with, create it
-            if (buffer == null)
-            {
-                buffer = new ComputeBuffer(data.Count, stride);
-            }
-
-            // Set data on the buffer
-            buffer.SetData(data);
-        }
+        RayTraceUtility.CreateComputeBuffer(ref mMeshObjectBuffer, mMeshObjects, 72);
+        RayTraceUtility.CreateComputeBuffer(ref mVertexBuffer, mVertices, 12);
+        RayTraceUtility.CreateComputeBuffer(ref mIndexBuffer, mIndices, 4);
     }
 
     private void SetComputeBuffer(string name, ComputeBuffer buffer)
@@ -391,7 +286,13 @@ public class RayTracingMaster : MonoBehaviour
         {
             Debug.Log("Rendering Frame:" + mFrameCount);
             yield return new WaitForSeconds(FrameRenderDelay);
-            TakeScreenshot();
+
+            if (Record) 
+            {
+                TakeScreenshot();
+                yield return new WaitForSeconds(0.1f);
+            }
+            
             FrameRendered?.Invoke(mFrameCount);
             mFrameCount++;
             mMeshObjectsNeedRebuilding = true;

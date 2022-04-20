@@ -135,8 +135,8 @@ void IntersectGroundPlane(Ray ray, inout RayHit bestHit)
         bestHit.position = ray.origin + t * ray.direction;
         bestHit.normal = float3(0.0f, 1.0f, 0.0f);
         bestHit.albedo = 0.5f;
-        bestHit.specular = 0.03f;
-        bestHit.smoothness = 0.2f;
+        bestHit.specular = 0.3f;
+        bestHit.smoothness = 0.75f;
         bestHit.emission = float3(0.0f, 0.0f, 0.0f);
     }
 }
@@ -214,10 +214,10 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
                 bestHit.distance = t;
                 bestHit.position = ray.origin + t * ray.direction;
                 bestHit.normal = normalize(cross(v1 - v0, v2 - v0));
-                bestHit.albedo = 0.0f;
-                bestHit.specular = 0.65f;
-                bestHit.smoothness = 0.99f;
-                bestHit.emission = 0.0f;
+                bestHit.albedo = 0.8f;
+                bestHit.specular = 0.95f;
+                bestHit.smoothness = 1.0f;
+                bestHit.emission = 0.1f;
             }
         }
     }
@@ -288,9 +288,11 @@ float3 Shade(inout Ray ray, RayHit hit)
     else
     {
         // Erase the ray's energy - the sky doesn't reflect anything
-        ray.energy = 0.0f;
+        //ray.energy = 0.1f;
+        //return float3(0.56f, 0.73f, 1.0f); // Fake skybox clearcolor
 
         // Sample the skybox and write it
+        ray.energy = 0.0f;
         float theta = acos(ray.direction.y) / -PI;
         float phi = atan2(ray.direction.x, -ray.direction.z) / -PI * 0.5f;
         return _SkyboxTexture.SampleLevel(sampler_SkyboxTexture, float2(phi, theta), 0).xyz; 
@@ -328,7 +330,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     // Trace and shade
     float3 result = float3(0, 0, 0);
    
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 16; i++)
     {
         RayHit hit = Trace(ray);
         result += ray.energy * Shade(ray, hit);
